@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trận Cai Hạ</title>
+    <style>
+        :root {
+            --wood-dark: #4a2f13;
+            --board-line: rgba(124, 88, 53, 0.7);
+        }
+
+        body {
+            margin: 0; padding: 0;
+            background-color: #141414;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; font-family: 'Times New Roman', Times, serif; user-select: none;
+        }
+
+        .game-container {
+            width: 410px; height: 710px;
+            background: #e3cca1;
+            background-image: url('https://www.transparenttextures.com/patterns/parchment.png');
+            border: 8px double var(--wood-dark);
+            border-radius: 12px; 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+            display: flex; flex-direction: column; justify-content: space-between; align-items: center;
+            padding: 15px 0; box-sizing: border-box;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* HEADER UI */
+        .header-ui {
+            width: 90%; display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 2px dashed var(--wood-dark); padding-bottom: 10px;
+        }
+        .info-box { font-size: 14px; color: #3d250e; font-weight: bold; line-height: 1.4; }
+        .title-game { font-size: 26px; font-weight: 900; color: #261405; letter-spacing: 1px; }
+        
+        .right-control-box {
+            display: flex; align-items: center; gap: 10px;
+        }
+
+        .btn-reset {
+            width: 36px; height: 36px; 
+            background: radial-gradient(circle at 30% 30%, #ffffff 0%, #d1d5db 100%);
+            border: 2px solid var(--wood-dark); border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 3px 5px rgba(0,0,0,0.25); font-size: 16px; font-weight: bold;
+            cursor: pointer; transition: transform 0.1s;
+        }
+        .btn-reset:active { transform: scale(0.9); }
+
+        .score-box { 
+            text-align: right; background: rgba(74, 47, 19, 0.08); 
+            padding: 4px 12px; border-radius: 6px; border: 1px solid var(--wood-dark); 
+        }
+        .score-val { font-size: 28px; font-weight: 900; color: #a31d1d; font-family: 'Impact', sans-serif; }
+
+        /* KHU VỰC ĐẾM NGƯỢC QUÂN MỚI SẮP RA */
+        .wave-indicator {
+            width: 90%; height: 50px; background: rgba(74, 47, 19, 0.05);
+            border: 1px solid rgba(74, 47, 19, 0.2); border-radius: 6px;
+            display: flex; align-items: center; justify-content: center; gap: 12px;
+            padding: 4px 10px; box-sizing: border-box; margin: 5px 0;
+        }
+        .wave-timer {
+            font-size: 13px; font-weight: bold; color: #a31d1d;
+            background: rgba(255, 255, 255, 0.6); padding: 3px 8px; border-radius: 12px;
+            border: 1px solid rgba(163, 29, 29, 0.3);
+        }
+        .preview-pieces {
+            display: flex; gap: 6px;
+        }
+        .mini-piece {
+            width: 26px; height: 26px; border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #f87171 0%, #b91c1c 80%);
+            border: 1px solid #450a0a; color: white; font-size: 9px;
+            font-weight: bold; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        /* TRẠNG THÁI HIỆU ỨNG CUỒNG NỘ */
+        .fury-status {
+            width: 90%; text-align: center; font-size: 13px; font-weight: bold;
+            color: #ffffff; background: linear-gradient(90deg, #b91c1c, #7f1d1d, #b91c1c);
+            padding: 4px 0; border-radius: 4px; border: 1px solid #450a0a;
+            box-shadow: 0 0 8px #ef4444; margin-top: -2px; margin-bottom: 4px;
+            display: none; animation: flash 1.5s infinite;
+        }
+        @keyframes flash {
+            0%, 100% { opacity: 0.8; }
+            50% { opacity: 1; box-shadow: 0 0 15px #f87171; }
+        }
+
+        /* BÀN CỜ */
+        .board-wrapper {
+            position: relative;
+            width: 360px; height: 450px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid var(--wood-dark);
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+
+        .board-svg {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+        }
+
+        .intersections-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+        }
+
+        .slot {
+            position: absolute;
+            width: 42px; height: 42px;
+            transform: translate(-50%, -50%);
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; z-index: 5;
+        }
+
+        .suggest-move::after {
+            content: ''; width: 12px; height: 12px; background-color: #2b7a2b; border-radius: 50%; 
+            box-shadow: 0 0 10px #4caf50; animation: pulse 1.2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.8); opacity: 0.6; }
+            50% { transform: scale(1.4); opacity: 1; }
+            100% { transform: scale(0.8); opacity: 0.6; }
+        }
+
+        /* QUÂN CỜ VÀ KIỂU CHỮ TIẾNG VIỆT */
+        .piece {
+            width: 36px; height: 36px; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 11px; font-weight: 900; font-family: 'Segoe UI', Arial, sans-serif;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.35), inset 0 -2px 3px rgba(0,0,0,0.3);
+            pointer-events: none;
+            transition: all 0.2s ease;
+            letter-spacing: -0.5px;
+        }
+        .piece.player { 
+            background: radial-gradient(circle at 35% 35%, #3b82f6 0%, #1d4ed8 80%);
+            border: 2px solid #1e3a8a; color: #ffffff; text-shadow: 0 1px 2px #000;
+        }
+        .piece.player.fury-mode {
+            background: radial-gradient(circle at 35% 35%, #f59e0b 0%, #d97706 50%, #b45309 100%) !important;
+            border: 2px solid #78350f !important;
+            box-shadow: 0 0 15px #f59e0b, inset 0 -2px 3px rgba(0,0,0,0.4);
+            animation: shake 0.3s infinite;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0); }
+            25% { transform: translate(0.5px, -0.5px); }
+            75% { transform: translate(-0.5px, 0.5px); }
+        }
+
+        .piece.bot { 
+            background: radial-gradient(circle at 35% 35%, #f87171 0%, #b91c1c 80%);
+            border: 2px solid #450a0a; color: #ffffff; text-shadow: 0 1px 2px #000;
+        }
+
+        /* MÀN HÌNH KẾT THÚC */
+        .end-game-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(20, 15, 10, 0.85);
+            z-index: 99;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.5s ease-in-out;
+        }
+        .end-game-overlay.active {
+            opacity: 1; pointer-events: auto;
+        }
+        .end-title {
+            font-size: 36px; font-weight: 900; letter-spacing: 2px; margin-bottom: 10px;
+            text-shadow: 0 4px 8px rgba(0,0,0,0.8);
+        }
+        .end-title.win { color: #44f444; }
+        .end-title.lose { color: #f44444; }
+        
+        .end-desc {
+            color: #e3cca1; font-size: 18px; font-weight: bold; margin-bottom: 30px; text-align: center; width: 80%;
+            line-height: 1.5;
+        }
+
+        .btn-taichien {
+            padding: 12px 36px; font-size: 20px; font-weight: 900; color: #ffffff;
+            background: linear-gradient(180deg, #b91c1c 0%, #7f1d1d 100%);
+            border: 2px solid #450a0a; border-radius: 8px; cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5); font-family: 'Times New Roman', serif;
+            transition: transform 0.1s, filter 0.2s;
+        }
+        .btn-taichien:hover { filter: brightness(1.2); }
+        .btn-taichien:active { transform: scale(0.95); }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <div class="end-game-overlay" id="end-overlay">
+            <div class="end-title" id="end-title">THẤT BẠI!</div>
+            <div class="end-desc" id="end-desc">Quân Xe đã sa bẫy phục kích của quân địch.</div>
+            <button class="btn-taichien" onclick="location.reload()">TÁI CHIẾN 🔄</button>
+        </div>
+
+        <div class="header-ui">
+            <div class="info-box">
+                <div class="title-game">Trận Cai Hạ</div>
+                <span style="color: #4a2f13;">Mục tiêu: Sống sót</span> | 
+                <span>Hiệp: <span id="turn-count" style="color: #15803d; font-size:16px;">0</span>/200</span>
+            </div>
+            
+            <div class="right-control-box">
+                <div class="btn-reset" onclick="location.reload()" title="Chơi lại ván mới">🔄</div>
+                <div class="score-box">
+                    <div style="font-size: 9px; color: #4a2f13; font-weight: bold; text-align:center;">CHIẾN TÍCH</div>
+                    <div class="score-val" id="score">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="wave-indicator" id="wave-indicator">
+            <div class="wave-timer" id="wave-timer">Còn 1 hiệp...</div>
+            <div class="preview-pieces" id="preview-pieces"></div>
+        </div>
+
+        <div class="fury-status" id="fury-banner">🔥 XA QUÂN LÀM LOẠN: HIỆP SAU CÀN QUÉT TOÀN HÀNG NGANG/DỌC! 🔥</div>
+
+        <div class="board-wrapper">
+            <svg class="board-svg" id="board-grid-svg"></svg>
+            <div class="intersections-layer" id="intersections-layer"></div>
+        </div>
+    </div>
+
+<script>
+    const PIECE_SCORES = { 'TOT': 8, 'SI': 8, 'TUONG': 15, 'MA': 20, 'PHAO': 20, 'XE': 30, 'TUONG_CHINH': 100 };
+
+    let boardState = Array(10).fill(null).map(() => Array(9).fill(0));
+    let isWaitingForEnemy = false; 
+    let isGameOver = false;
+
+    // Biến quản lý tính năng Cuồng nộ
+    let bossKilledTurn = -1; 
+    let isFuryActive = false; 
+
+    const BOARD_W = 360;
+    const BOARD_H = 450;
+    const START_X = 22.5; 
+    const START_Y = 25;   
+    const SPACE_X = 39.375; 
+    const SPACE_Y = 44.444; 
+
+    function getX(c) { return START_X + c * SPACE_X; }
+    function getY(r) { return START_Y + r * SPACE_Y; }
+
+    // Khởi tạo thế trận ban đầu
+    boardState[1][1] = { type: 'TOT', side: 'b' };
+    boardState[1][4] = { type: 'TOT', side: 'b' };
+    boardState[1][7] = { type: 'TOT', side: 'b' };
+    boardState[6][4] = { type: 'XE', side: 'p' }; 
+
+    const spawnTimeline = [
+        { after: 1, pieces: ['TOT', 'TOT'] }, { after: 2, pieces: ['TOT', 'TOT'] },
+        { after: 1, pieces: ['TOT', 'TOT'] }, { after: 2, pieces: ['TOT', 'TOT'] },
+        { after: 2, pieces: ['SI'] }, { after: 3, pieces: ['SI', 'SI'] },
+        { after: 4, pieces: ['TOT', 'TOT', 'SI'] }, { after: 4, pieces: ['TOT', 'SI'] },
+        { after: 4, pieces: ['TUONG_CHINH', 'SI', 'SI'] }, { after: 2, pieces: ['TUONG'] },
+        { after: 3, pieces: ['TOT', 'TUONG'] }, { after: 4, pieces: ['SI', 'TUONG'] },
+        { after: 5, pieces: ['TUONG', 'SI', 'SI'] }, { after: 2, pieces: ['TOT', 'TOT'] },
+        { after: 2, pieces: ['MA'] }, { after: 4, pieces: ['MA', 'TOT'] },
+        { after: 3, pieces: ['SI', 'TUONG'] }, { after: 5, pieces: ['MA', 'TUONG', 'SI'] },
+        { after: 4, pieces: ['MA', 'MA'] }, { after: 4, pieces: ['SI', 'SI', 'TUONG_CHINH'] },
+        { after: 2, pieces: ['PHAO'] }, { after: 4, pieces: ['PHAO', 'TOT'] },
+        { after: 3, pieces: ['TUONG', 'SI'] }, { after: 5, pieces: ['PHAO', 'MA', 'TUONG'] },
+        { after: 5, pieces: ['PHAO', 'PHAO', 'TOT'] }, { after: 3, pieces: ['XE'] },
+        { after: 5, pieces: ['XE', 'PHAO'] }, { after: 4, pieces: ['TUONG', 'SI', 'MA'] },
+        { after: 4, pieces: ['PHAO', 'TOT'] }, { after: 5, pieces: ['XE', 'XE'] },
+        { after: 3, pieces: ['SI', 'SI', 'TUONG_CHINH'] }, { after: 3, pieces: ['TOT', 'TOT', 'TOT'] },
+        { after: 5, pieces: ['SI', 'SI', 'TUONG'] }, { after: 7, pieces: ['TUONG', 'TUONG', 'MA', 'PHAO'] },
+        { after: 6, pieces: ['MA', 'MA', 'XE'] }, { after: 3, pieces: ['TOT', 'TOT', 'SI', 'SI'] },
+        { after: 7, pieces: ['PHAO', 'PHAO', 'XE'] }, { after: 4, pieces: ['MA', 'MA', 'TOT'] },
+        { after: 5, pieces: ['PHAO', 'PHAO', 'SI', 'TUONG'] }, { after: 4, pieces: ['XE', 'MA', 'TOT'] },
+        { after: 5, pieces: ['XE', 'XE', 'SI'] }, { after: 3, pieces: ['SI', 'SI', 'TUONG_CHINH'] },
+        { after: 6, pieces: ['PHAO', 'PHAO', 'MA', 'MA'] }, { after: 4, pieces: ['XE', 'PHAO', 'TUONG'] },
+        { after: 3, pieces: ['TOT', 'TOT', 'TOT', 'SI'] }, { after: 5, pieces: ['XE', 'XE', 'MA'] },
+        { after: 4, pieces: ['PHAO', 'PHAO', 'MA', 'TOT'] }, { after: 6, pieces: ['XE', 'XE', 'PHAO', 'PHAO'] },
+        { after: 3, pieces: ['TUONG_CHINH', 'SI', 'SI', 'TUONG', 'TUONG'] }, { after: 4, pieces: ['MA', 'MA', 'TUONG', 'TUONG'] },
+        { after: 5, pieces: ['XE', 'PHAO', 'PHAO', 'TOT'] }, { after: 4, pieces: ['XE', 'XE', 'MA', 'SI'] },
+        { after: 5, pieces: ['PHAO', 'PHAO', 'PHAO', 'TOT', 'TOT'] }, { after: 2, pieces: ['XE', 'PHAO', 'MA'] },
+        { after: 2, pieces: ['MA', 'MA', 'TOT', 'TOT'] }, { after: 1, pieces: ['PHAO', 'PHAO', 'SI', 'SI'] },
+        { after: 1, pieces: ['XE', 'TUONG_CHINH', 'SI', 'SI'] }, { after: 4, pieces: ['XE', 'XE', 'PHAO', 'PHAO', 'MA', 'MA'] }
+    ];
+
+    let currentTurn = 0;
+    let nextSpawnTargetTurn = spawnTimeline[0].after;
+    let timelineIndex = 0;
+    let totalScore = 0;
+    let xePos = { r: 6, c: 4 };
+
+    const sleep = ms => new Promise(res => setTimeout(res, ms));
+
+    function drawPerfectSVGBoard() {
+        const svg = document.getElementById('board-grid-svg');
+        let html = '';
+        for(let r = 0; r < 10; r++) {
+            let y = getY(r);
+            html += `<line x1="${getX(0)}" y1="${y}" x2="${getX(8)}" y2="${y}" stroke="var(--board-line)" stroke-width="1.5"/>`;
+        }
+        for(let c = 0; c < 9; c++) {
+            let x = getX(c);
+            if (c === 0 || c === 8) {
+                html += `<line x1="${x}" y1="${getY(0)}" x2="${x}" y2="${getY(9)}" stroke="var(--board-line)" stroke-width="1.5"/>`;
+            } else {
+                html += `<line x1="${x}" y1="${getY(0)}" x2="${x}" y2="${getY(4)}" stroke="var(--board-line)" stroke-width="1.5"/>`;
+                html += `<line x1="${x}" y1="${getY(5)}" x2="${x}" y2="${getY(9)}" stroke="var(--board-line)" stroke-width="1.5"/>`;
+            }
+        }
+        let riverY = (getY(4) + getY(5)) / 2 + 5;
+        html += `<text x="${BOARD_W/2}" y="${riverY}" fill="#5c3e21" font-size="15" font-weight="bold" font-style="italic" text-anchor="middle" letter-spacing="10">楚河 漢界</text>`;
+        svg.innerHTML = html;
+    }
+
+    function updateWaveIndicator() {
+        const timerEl = document.getElementById('wave-timer');
+        const previewEl = document.getElementById('preview-pieces');
+        
+        if (timelineIndex >= spawnTimeline.length) {
+            timerEl.innerText = "Hết viện binh";
+            previewEl.innerHTML = "";
+            return;
+        }
+
+        let remainingTurns = nextSpawnTargetTurn - currentTurn;
+        timerEl.innerText = `Còn ${remainingTurns} hiệp...`;
+
+        const currentWave = spawnTimeline[timelineIndex];
+        let html = '';
+        currentWave.pieces.forEach(type => {
+            html += `<div class="mini-piece">${getPieceDisplayName(type)}</div>`;
+        });
+        previewEl.innerHTML = html;
+    }
+
+    function render(showSuggestions = true) {
+        const layer = document.getElementById('intersections-layer');
+        layer.innerHTML = '';
+        const validMoves = (showSuggestions && !isWaitingForEnemy && !isGameOver) ? getXeMoves(xePos.r, xePos.c) : [];
+
+        // Hiển thị Banner cảnh báo cuồng nộ
+        const banner = document.getElementById('fury-banner');
+        if (bossKilledTurn !== -1 && currentTurn === bossKilledTurn + 1) {
+            banner.style.display = 'block';
+            banner.innerText = "🔥 XA QUÂN LÀM LOẠN: NƯỚC ĐI NÀY SẼ CÀN QUÉT TOÀN HÀNG NGANG VÀ DỌC! 🔥";
+        } else {
+            banner.style.display = 'none';
+        }
+
+        for (let r = 0; r < 10; r++) {
+            for (let c = 0; c < 9; c++) {
+                const p = boardState[r][c];
+                if (p) {
+                    const slot = document.createElement('div');
+                    slot.className = 'slot';
+                    slot.style.left = `${getX(c)}px`;
+                    slot.style.top = `${getY(r)}px`;
+                    
+                    const pEl = document.createElement('div');
+                    pEl.className = `piece ${p.side === 'p' ? 'player' : 'bot'}`;
+                    
+                    if (p.side === 'p' && bossKilledTurn !== -1 && currentTurn === bossKilledTurn + 1) {
+                        pEl.classList.add('fury-mode');
+                    }
+
+                    pEl.innerText = getPieceDisplayName(p.type);
+                    slot.appendChild(pEl);
+                    layer.appendChild(slot);
+                }
+
+                if (validMoves.some(m => m.r === r && m.c === c)) {
+                    const slotSuggest = document.createElement('div');
+                    slotSuggest.className = 'slot suggest-move';
+                    slotSuggest.style.left = `${getX(c)}px`;
+                    slotSuggest.style.top = `${getY(r)}px`;
+                    slotSuggest.onclick = () => executeMove(r, c);
+                    layer.appendChild(slotSuggest);
+                }
+            }
+        }
+        document.getElementById('turn-count').innerText = currentTurn;
+        document.getElementById('score').innerText = totalScore;
+        updateWaveIndicator();
+    }
+
+    // Đã đổi hết ký hiệu hiển thị sang tiếng Việt
+    function getPieceDisplayName(type) {
+        return { 'XE': 'XE', 'TOT': 'TỐT', 'SI': 'SĨ', 'TUONG': 'TƯỢNG', 'MA': 'MÃ', 'PHAO': 'PHÁO', 'TUONG_CHINH': 'TƯỚNG' }[type] || '';
+    }
+
+    function getXeMoves(r, c) {
+        let moves = [];
+        const dirs = [[-1,0], [1,0], [0,-1], [0,1]];
+        dirs.forEach(d => {
+            let nr = r, nc = c;
+            while(true) {
+                nr += d[0]; nc += d[1];
+                if (nr < 0 || nr >= 10 || nc < 0 || nc >= 9) break;
+                const t = boardState[nr][nc];
+                if (t === 0) {
+                    moves.push({r: nr, c: nc});
+                } else {
+                    if (t.side === 'b') moves.push({r: nr, c: nc});
+                    break; 
+                }
+            }
+        });
+        return moves;
+    }
+
+    async function executeMove(r, c) {
+        if (currentTurn >= 200 || isWaitingForEnemy || isGameOver) return;
+        isWaitingForEnemy = true; 
+
+        let activeFuryThisTurn = (bossKilledTurn !== -1 && currentTurn === bossKilledTurn + 1);
+
+        const target = boardState[r][c];
+        if (target && target.side === 'b') {
+            totalScore += PIECE_SCORES[target.type] || 0;
+            if (target.type === 'TUONG_CHINH') {
+                bossKilledTurn = currentTurn; 
+            }
+        }
+
+        // BƯỚC 1: Xe di chuyển đến vị trí mới
+        boardState[r][c] = boardState[xePos.r][xePos.c];
+        boardState[xePos.r][xePos.c] = 0;
+        xePos = { r, c }; 
+        currentTurn++;
+
+        // PHÁT TÁC TÍNH NĂNG CUỒNG NỘ
+        if (activeFuryThisTurn) {
+            for (let i = 0; i < 9; i++) { 
+                if (i !== c && boardState[r][i] && boardState[r][i].side === 'b') {
+                    totalScore += PIECE_SCORES[boardState[r][i].type] || 0;
+                    boardState[r][i] = 0;
+                }
+            }
+            for (let i = 0; i < 10; i++) { 
+                if (i !== r && boardState[i][c] && boardState[i][c].side === 'b') {
+                    totalScore += PIECE_SCORES[boardState[i][c].type] || 0;
+                    boardState[i][c] = 0;
+                }
+            }
+            bossKilledTurn = -1; 
+        }
+        
+        render(false);
+        await sleep(400);
+
+        // BƯỚC 2: Địch phản xạ hành động
+        let killerPiece = findEnemyCapableOfCapture();
+        if (killerPiece) {
+            executeEnemyAction(killerPiece.r, killerPiece.c, killerPiece.bestMove, true);
+            render(false);
+            isWaitingForEnemy = false;
+            return;
+        } else {
+            handleEnemyAIAction();
+        }
+        render(false);
+        await sleep(400);
+
+        // BƯỚC 3: Sinh phục binh nếu đúng lượt
+        if (timelineIndex < spawnTimeline.length && currentTurn === nextSpawnTargetTurn) {
+            handleEnemySpawningRandomly();
+            render(false);
+        }
+
+        checkGameStatus();
+        isWaitingForEnemy = false; 
+        if (!isGameOver) render(true);
+    }
+
+    function findEnemyCapableOfCapture() {
+        for (let r = 0; r < 10; r++) {
+            for (let c = 0; c < 9; c++) {
+                const p = boardState[r][c];
+                if (p !== 0 && p.side === 'b') {
+                    let validMoves = getEnemyValidMoves(r, c);
+                    let killMove = validMoves.find(m => m.r === xePos.r && m.c === xePos.c);
+                    if (killMove) return { r, c, bestMove: killMove };
+                }
+            }
+        }
+        return null;
+    }
+
+    function handleEnemyAIAction() {
+        let lineCandidates = [];   
+        let outsideCandidates = []; 
+
+        for (let r = 0; r < 10; r++) {
+            for (let c = 0; c < 9; c++) {
+                const p = boardState[r][c];
+                if (p !== 0 && p.side === 'b') {
+                    let validMoves = getEnemyValidMoves(r, c);
+                    if (validMoves.length === 0) continue; 
+
+                    let dist = Math.abs(r - xePos.r) + Math.abs(c - xePos.c);
+                    let enemyInfo = { r, c, dist, validMoves };
+
+                    if (r === xePos.r || c === xePos.c) {
+                        lineCandidates.push(enemyInfo);
+                    } else {
+                        outsideCandidates.push(enemyInfo);
+                    }
+                }
+            }
+        }
+
+        if (lineCandidates.length > 0) {
+            lineCandidates.sort((a, b) => a.dist - b.dist);
+            let targetEnemy = lineCandidates[0];
+
+            let escapeMoves = targetEnemy.validMoves.filter(m => m.r !== xePos.r && m.c !== xePos.c);
+            let chosenMove = null;
+
+            if (escapeMoves.length > 0) {
+                escapeMoves.sort((m1, m2) => {
+                    let d1 = Math.abs(m1.r - xePos.r) + Math.abs(m1.c - xePos.c);
+                    let d2 = Math.abs(m2.r - xePos.r) + Math.abs(m2.c - xePos.c);
+                    return d2 - d1; 
+                });
+                chosenMove = escapeMoves[0];
+            } else {
+                targetEnemy.validMoves.sort((m1, m2) => {
+                    let d1 = Math.abs(m1.r - xePos.r) + Math.abs(m1.c - xePos.c);
+                    let d2 = Math.abs(m2.r - xePos.r) + Math.abs(m2.c - xePos.c);
+                    return d2 - d1;
+                });
+                chosenMove = targetEnemy.validMoves[0];
+            }
+
+            executeEnemyAction(targetEnemy.r, targetEnemy.c, chosenMove);
+        } 
+        else if (outsideCandidates.length > 0) {
+            outsideCandidates.sort((a, b) => a.dist - b.dist);
+            let targetEnemy = outsideCandidates[0];
+
+            targetEnemy.validMoves.sort((m1, m2) => {
+                let d1 = Math.abs(m1.r - xePos.r) + Math.abs(m1.c - xePos.c);
+                let d2 = Math.abs(m2.r - xePos.r) + Math.abs(m2.c - xePos.c);
+                return d2 - d1; 
+            });
+
+            let chosenMove = targetEnemy.validMoves[0];
+            executeEnemyAction(targetEnemy.r, targetEnemy.c, chosenMove);
+        }
+    }
+
+    function executeEnemyAction(er, ec, bestMove, isKill = false) {
+        boardState[bestMove.r][bestMove.c] = boardState[er][ec];
+        boardState[er][ec] = 0;
+
+        if (isKill) {
+            isGameOver = true;
+            showEndGameScreen(false, "Quân XE của bạn đã bị tiêu diệt hoàn toàn giữa trùng vây phục binh!");
+        }
+    }
+
+    function handleEnemySpawningRandomly() {
+        const currentWave = spawnTimeline[timelineIndex];
+        let piecesToSpawn = [...currentWave.pieces];
+
+        if (piecesToSpawn.includes('TUONG_CHINH') && piecesToSpawn.filter(x => x === 'SI').length >= 2) {
+            let spawnedFormation = trySpawnBossFormation();
+            if (spawnedFormation) {
+                piecesToSpawn.splice(piecesToSpawn.indexOf('TUONG_CHINH'), 1);
+                piecesToSpawn.splice(piecesToSpawn.indexOf('SI'), 1);
+                piecesToSpawn.splice(piecesToSpawn.indexOf('SI'), 1);
+            }
+        }
+
+        piecesToSpawn.forEach(pieceType => {
+            let emptyCells = [];
+            for (let r = 0; r < 10; r++) {
+                for (let c = 0; c < 9; c++) {
+                    if (boardState[r][c] === 0 && (r !== xePos.r || c !== xePos.c)) {
+                        emptyCells.push({ r, c });
+                    }
+                }
+            }
+            if (emptyCells.length > 0) {
+                let randomCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+                boardState[randomCell.r][randomCell.c] = { type: pieceType, side: 'b' };
+            }
+        });
+
+        timelineIndex++;
+        if (timelineIndex < spawnTimeline.length) {
+            nextSpawnTargetTurn += spawnTimeline[timelineIndex].after;
+        }
+    }
+
+    function trySpawnBossFormation() {
+        let candidateCells = [];
+        for (let r = 1; r < 9; r++) {
+            for (let c = 1; c < 8; c++) {
+                if (boardState[r][c] === 0 && (r !== xePos.r || c !== xePos.c)) {
+                    let diagonalPairs = [
+                        [{r: r-1, c: c-1}, {r: r-1, c: c+1}], 
+                        [{r: r+1, c: c-1}, {r: r+1, c: c+1}], 
+                        [{r: r-1, c: c-1}, {r: r+1, c: c+1}], 
+                        [{r: r-1, c: c+1}, {r: r+1, c: c-1}]  
+                    ];
+
+                    for (let pair of diagonalPairs) {
+                        let cellS1 = pair[0];
+                        let cellS2 = pair[1];
+
+                        if (boardState[cellS1.r][cellS1.c] === 0 && (cellS1.r !== xePos.r || cellS1.c !== xePos.c) &&
+                            boardState[cellS2.r][cellS2.c] === 0 && (cellS2.r !== xePos.r || cellS2.c !== xePos.c)) {
+                            candidateCells.push({ boss: {r, c}, s1: cellS1, s2: cellS2 });
+                        }
+                    }
+                }
+            }
+        }
+
+        if (candidateCells.length > 0) {
+            let choice = candidateCells[Math.floor(Math.random() * candidateCells.length)];
+            boardState[choice.boss.r][choice.boss.c] = { type: 'TUONG_CHINH', side: 'b' };
+            boardState[choice.s1.r][choice.s1.c] = { type: 'SI', side: 'b' };
+            boardState[choice.s2.r][choice.s2.c] = { type: 'SI', side: 'b' };
+            return true;
+        }
+        return false; 
+    }
+
+    function getEnemyValidMoves(er, ec) {
+        const piece = boardState[er][ec];
+        let moves = [];
+        function addIfValid(tr, tc) {
+            if (tr >= 0 && tr < 10 && tc >= 0 && tc < 9) {
+                if (boardState[tr][tc] === 0 || boardState[tr][tc].side === 'p') moves.push({ r: tr, c: tc });
+            }
+        }
+
+        switch (piece.type) {
+            case 'TOT':
+            case 'TUONG_CHINH':
+                [[-1,0], [1,0], [0,-1], [0,1]].forEach(d => addIfValid(er+d[0], ec+d[1]));
+                break;
+            case 'SI':
+                [[-1,-1], [-1,1], [1,-1], [1,1]].forEach(d => addIfValid(er+d[0], ec+d[1]));
+                break;
+            case 'TUONG':
+                [[-2,-2,-1,-1], [-2,2,-1,1], [2,-2,1,-1], [2,2,1,1]].forEach(d => {
+                    let eyeR = er+d[2], eyeC = ec+d[3];
+                    if (eyeR>=0 && eyeR<10 && eyeC>=0 && eyeC<9 && boardState[eyeR][eyeC] === 0) addIfValid(er+d[0], ec+d[1]);
+                });
+                break;
+            case 'MA':
+                const mDirs = [
+                    {step: [-1, 0], targets: [[-2, -1], [-2, 1]]}, {step: [1, 0], targets: [[2, -1], [2, 1]]},
+                    {step: [0, -1], targets: [[-1, -2], [1, -2]]}, {step: [0, 1], targets: [[-1, 2], [1, 2]]}
+                ];
+                mDirs.forEach(d => {
+                    let checkR = er + d.step[0], checkC = ec + d.step[1];
+                    if (checkR >= 0 && checkR < 10 && checkC >= 0 && checkC < 9 && boardState[checkR][checkC] === 0) {
+                        d.targets.forEach(t => addIfValid(er + t[0], ec + t[1]));
+                    }
+                });
+                break;
+            case 'XE':
+                [[-1,0], [1,0], [0,-1], [0,1]].forEach(d => {
+                    let step = 1;
+                    while(true) {
+                        let tr = er + d[0]*step, tc = ec + d[1]*step;
+                        if (tr < 0 || tr >= 10 || tc < 0 || tc >= 9) break;
+                        if (boardState[tr][tc] === 0) moves.push({r: tr, c: tc});
+                        else { if (boardState[tr][tc].side === 'p') moves.push({r: tr, c: tc}); break; }
+                        step++;
+                    }
+                });
+                break;
+            case 'PHAO':
+                [[-1,0], [1,0], [0,-1], [0,1]].forEach(d => {
+                    let step = 1; let ngoi = false;
+                    while(true) {
+                        let tr = er + d[0]*step, tc = ec + d[1]*step;
+                        if (tr < 0 || tr >= 10 || tc < 0 || tc >= 9) break;
+                        if (!ngoi) {
+                            if (boardState[tr][tc] === 0) moves.push({r: tr, c: tc});
+                            else ngoi = true;
+                        } else {
+                            if (boardState[tr][tc] !== 0) {
+                                if (boardState[tr][tc].side === 'p') moves.push({r: tr, c: tc});
+                                break;
+                            }
+                        }
+                        step++;
+                    }
+                });
+                break;
+        }
+        return moves;
+    }
+
+    function checkGameStatus() {
+        if (currentTurn >= 200 && !isGameOver) {
+            isGameOver = true;
+            showEndGameScreen(true, `Chiến tích hiển hách! Bạn đã kiên cường vượt qua thử thách 200 hiệp của trận chiến.`);
+        }
+    }
+
+    function showEndGameScreen(isWin, message) {
+        const overlay = document.getElementById('end-overlay');
+        const title = document.getElementById('end-title');
+        const desc = document.getElementById('end-desc');
+
+        if (isWin) {
+            title.innerText = "ĐẠI THẮNG! 🎉";
+            title.className = "end-title win";
+        } else {
+            title.innerText = "THẤT BẠI! 💀";
+            title.className = "end-title lose";
+        }
+        desc.innerText = message;
+        overlay.classList.add('active');
+    }
+
+    drawPerfectSVGBoard();
+    render();
+</script>
+</body>
+</html>
